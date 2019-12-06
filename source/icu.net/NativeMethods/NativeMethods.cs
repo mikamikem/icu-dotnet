@@ -81,6 +81,33 @@ namespace Icu
 
 		#endregion
 
+		#region Native methods for macOS
+
+		private const string macOSicu4cBrewPath = "/usr/local/Cellar/icu4c/";
+
+		private const string MACOS_LIBDL_NAME = "dl";
+
+		[DllImport(MACOS_LIBDL_NAME, EntryPoint = "dlopen", SetLastError = true)]
+		private static extern IntPtr macOS_dlopen(string file, int mode);
+
+		[DllImport(MACOS_LIBDL_NAME, EntryPoint = "dlclose", SetLastError = true)]
+		private static extern int macOS_dlclose(IntPtr handle);
+
+		[DllImport(MACOS_LIBDL_NAME, EntryPoint = "dlsym", SetLastError = true)]
+		private static extern IntPtr macOS_dlsym(IntPtr handle, string name);
+
+		[DllImport(MACOS_LIBDL_NAME, EntryPoint = "dlerror")]
+		private static extern IntPtr _macOS_dlerror();
+
+		private static string macOS_dlerror()
+		{
+			// Don't free the string returned from _dlerror()!
+			var ptr = _macOS_dlerror();
+			return Marshal.PtrToStringAnsi(ptr);
+		}
+
+		#endregion
+
 		#region Native methods for Windows
 
 		[DllImport("kernel32.dll", SetLastError = true)]
@@ -116,8 +143,6 @@ namespace Icu
 		private static IntPtr _IcuCommonLibHandle;
 		private static IntPtr _IcuI18NLibHandle;
 
-		private static bool IsWindows => Platform.OperatingSystem == OperatingSystemType.Windows;
-
 		private static IntPtr IcuCommonLibHandle
 		{
 			get
@@ -132,8 +157,26 @@ namespace Icu
 		{
 			get
 			{
-				if (_IcuI18NLibHandle == IntPtr.Zero)
-					_IcuI18NLibHandle = LoadIcuLibrary(IsWindows ? "icuin" : "icui18n");
+				if(_IcuI18NLibHandle == IntPtr.Zero)
+				{
+					string i18nlibName = "";
+
+					switch(Platform.OperatingSystem)
+					{
+						case OperatingSystemType.Windows:
+							i18nlibName = "icuin";
+							break;
+						case OperatingSystemType.Unix:
+							i18nlibName = "icui18n";
+							break;
+						case OperatingSystemType.MacOSX:
+							i18nlibName = "icui18n";
+							break;
+					}
+
+					_IcuI18NLibHandle = LoadIcuLibrary(i18nlibName);
+				}
+
 				return _IcuI18NLibHandle;
 			}
 		}
@@ -161,10 +204,10 @@ namespace Icu
 
 		private static void AddDirectoryToSearchPath(string directory)
 		{
-			// Only perform this for Linux because we are using LoadLibraryEx
+			// Only perform this for non-Windows because we are using LoadLibraryEx
 			// to ensure that a library's dependencies is loaded starting from
 			// where that library is located.
-			if (!IsWindows)
+			if (Platform.OperatingSystem != OperatingSystemType.Windows)
 			{
 				var ldLibPath = Environment.GetEnvironmentVariable("LD_LIBRARY_PATH");
 				Environment.SetEnvironmentVariable("LD_LIBRARY_PATH",
@@ -177,16 +220,42 @@ namespace Icu
 			if (!Directory.Exists(directory))
 				return false;
 
-			var filePattern = IsWindows ? libraryName + "*.dll" : "lib" + libraryName + ".so.*";
+			string filePattern = "";
+
+			switch(Platform.OperatingSystem)
+			{
+				case OperatingSystemType.Windows:
+					filePattern = libraryName + "*.dll";
+					break;
+				case OperatingSystemType.Unix:
+					filePattern = "lib" + libraryName + ".so.*";
+					break;
+				case OperatingSystemType.MacOSX:
+					filePattern = "lib" + libraryName + ".*.dylib";
+					break;
+			}
+
 			var files = Directory.EnumerateFiles(directory, filePattern).ToList();
 			if (files.Count > 0)
 			{
 				// Do a reverse sort so that we use the highest version
 				files.Sort((x, y) => string.CompareOrdinal(y, x));
 				var filePath = files[0];
-				var version = IsWindows
-					? Path.GetFileNameWithoutExtension(filePath).Substring(5) // strip icuuc
-					: Path.GetFileName(filePath).Substring(12); // strip libicuuc.so.
+				string version = "";
+
+				switch(Platform.OperatingSystem)
+				{
+					case OperatingSystemType.Windows:
+						version = Path.GetFileNameWithoutExtension(filePath).Substring(5);
+						break;
+					case OperatingSystemType.Unix:
+						version = Path.GetFileName(filePath).Substring(12);
+						break;
+					case OperatingSystemType.MacOSX:
+						version = Path.GetFileNameWithoutExtension(filePath).Replace("lib" + libraryName + ".", "").Replace(".dylib", "");
+						break;
+				}
+
 				int icuVersion;
 				if (int.TryParse(version, out icuVersion))
 				{
@@ -205,9 +274,23 @@ namespace Icu
 		private static bool LocateIcuLibrary(string libraryName)
 		{
 			var arch = IsRunning64Bit ? "x64" : "x86";
-			// Look for ICU binaries in lib/{win,linux}-{x86,x64} subdirectory first
-			var platform = IsWindows ? "win" : "linux";
-			if (CheckDirectoryForIcuBinaries(
+			// Look for ICU binaries in lib/{win,linux,macos}-{x86,x64} subdirectory first
+			string platform = "";
+
+			switch(Platform.OperatingSystem)
+			{
+				case OperatingSystemType.Windows:
+					platform = "win";
+					break;
+				case OperatingSystemType.Unix:
+					platform = "linux";
+					break;
+				case OperatingSystemType.MacOSX:
+					platform = "macos";
+					break;
+			}
+
+			if(CheckDirectoryForIcuBinaries(
 				Path.Combine(DirectoryOfThisAssembly, "lib", $"{platform}-{arch}"),
 				libraryName))
 				return true;
@@ -218,7 +301,7 @@ namespace Icu
 				libraryName))
 				return true;
 
-			// next try just {win,linux}-x86/x64 subdirectory
+			// next try just {win,linux,macos}-x86/x64 subdirectory
 			if (CheckDirectoryForIcuBinaries(
 				Path.Combine(DirectoryOfThisAssembly, $"{platform}-{arch}"),
 				libraryName))
@@ -230,23 +313,57 @@ namespace Icu
 				libraryName))
 				return true;
 
+			if(Platform.OperatingSystem == OperatingSystemType.MacOSX)
+			{
+				if(CheckMacOSPlatforms(libraryName))
+					return true;
+			}
+
 			// otherwise check the current directory
 			// If we don't find it here we rely on it being in the PATH somewhere...
 			return CheckDirectoryForIcuBinaries(DirectoryOfThisAssembly, libraryName);
 		}
 
+		private static bool CheckMacOSPlatforms(string libraryName)
+		{
+			if(!Directory.Exists(macOSicu4cBrewPath))
+				return false;
+
+			var directories = Directory.EnumerateDirectories(macOSicu4cBrewPath).ToList();
+			if(directories.Count > 0)
+			{
+				// Do a reverse sort so that we use the highest version
+				directories.Sort((x, y) => string.CompareOrdinal(y, x));
+				string desiredBaseVersion = directories[0];
+
+				string libRootPath = Path.Combine(desiredBaseVersion, "lib");
+
+				if(Directory.Exists(libRootPath))
+				{
+					return CheckDirectoryForIcuBinaries(libRootPath, libraryName);
+				}
+			}
+
+			return false;
+		}
+
 		private static IntPtr LoadIcuLibrary(string libraryName)
 		{
+			//string versionString = "64.2";
+			//IcuVersion = 64;
+			//string fullLibraryPath = Path.Combine("/usr", "local", "Cellar", "icu4c", versionString, "lib", );
+			//return NativeLibraryLoader.loadLibraryDelegate($"{libraryName}.{versionString}.dylib");
+
 			Trace.WriteLineIf(!IsInitialized,
 				"WARNING: ICU is not initialized. Please call Icu.Wrapper.Init() at the start of your application.");
 
-			lock (_lock)
+			lock(_lock)
 			{
-				if (IcuVersion <= 0)
+				if(IcuVersion <= 0)
 					LocateIcuLibrary(libraryName);
 
 				var handle = GetIcuLibHandle(libraryName, IcuVersion > 0 ? IcuVersion : MaxIcuVersion);
-				if (handle == IntPtr.Zero)
+				if(handle == IntPtr.Zero)
 				{
 					throw new FileLoadException($"Can't load ICU library (version {IcuVersion})",
 						libraryName);
@@ -260,11 +377,12 @@ namespace Icu
 			if (icuVersion < MinIcuVersion)
 				return IntPtr.Zero;
 
-			IntPtr handle;
-			string libPath;
+			IntPtr handle = IntPtr.Zero;
+			string libPath = "";
 			int lastError = 0;
+			OperatingSystemType operatingSystemType = Platform.OperatingSystem;
 
-			if (IsWindows)
+			if(operatingSystemType == OperatingSystemType.Windows)
 			{
 				var libName = $"{basename}{icuVersion}.dll";
 				var isIcuPathSpecified = !string.IsNullOrEmpty(_IcuPath);
@@ -281,7 +399,7 @@ namespace Icu
 				Trace.WriteLineIf(handle == IntPtr.Zero && lastError != 0,
 					$"Unable to load [{libPath}]. Error: {new Win32Exception(lastError).Message}");
 			}
-			else
+			else if(operatingSystemType == OperatingSystemType.Unix)
 			{
 				var libName = $"lib{basename}.so.{icuVersion}";
 				libPath = string.IsNullOrEmpty(_IcuPath) ? libName : Path.Combine(_IcuPath, libName);
@@ -292,10 +410,22 @@ namespace Icu
 				Trace.WriteLineIf(handle == IntPtr.Zero && lastError != 0,
 					$"Unable to load [{libPath}]. Error: {lastError} ({dlerror()})");
 			}
+			else if(operatingSystemType == OperatingSystemType.MacOSX)
+			{
+				var libName = $"lib{basename}.{icuVersion}.dylib";
+				libPath = string.IsNullOrEmpty(_IcuPath) ? libName : Path.Combine(_IcuPath, libName);
+
+				handle = macOS_dlopen(libPath, RTLD_NOW);
+				lastError = Marshal.GetLastWin32Error();
+
+				Trace.WriteLineIf(handle == IntPtr.Zero && lastError != 0,
+					$"Unable to load [{libPath}]. Error: {lastError} ({macOS_dlerror()})");
+			}
+
 			if (handle == IntPtr.Zero)
 			{
 				Trace.TraceWarning("{0} of {1} failed with error {2}",
-					IsWindows ? "LoadLibraryEx" : "dlopen",
+					operatingSystemType == OperatingSystemType.Windows ? "LoadLibraryEx" : "dlopen",
 					libPath, lastError);
 				return GetIcuLibHandle(basename, icuVersion - 1);
 			}
@@ -317,19 +447,27 @@ namespace Icu
 					// ignore failures - can happen when running unit tests
 				}
 
-				if (IsWindows)
+				OperatingSystemType operatingSystemType = Platform.OperatingSystem;
+				if(operatingSystemType == OperatingSystemType.Windows)
 				{
 					if (_IcuCommonLibHandle != IntPtr.Zero)
 						FreeLibrary(_IcuCommonLibHandle);
 					if (_IcuI18NLibHandle != IntPtr.Zero)
 						FreeLibrary(_IcuI18NLibHandle);
 				}
-				else
+				else if(operatingSystemType == OperatingSystemType.Unix)
 				{
-					if (_IcuCommonLibHandle != IntPtr.Zero)
+					if(_IcuCommonLibHandle != IntPtr.Zero)
 						dlclose(_IcuCommonLibHandle);
-					if (_IcuI18NLibHandle != IntPtr.Zero)
+					if(_IcuI18NLibHandle != IntPtr.Zero)
 						dlclose(_IcuI18NLibHandle);
+				}
+				else if(operatingSystemType == OperatingSystemType.MacOSX)
+				{
+					if(_IcuCommonLibHandle != IntPtr.Zero)
+						macOS_dlclose(_IcuCommonLibHandle);
+					if(_IcuI18NLibHandle != IntPtr.Zero)
+						macOS_dlclose(_IcuI18NLibHandle);
 				}
 				_IcuCommonLibHandle = IntPtr.Zero;
 				_IcuI18NLibHandle = IntPtr.Zero;
@@ -371,16 +509,38 @@ namespace Icu
 		private static T GetMethod<T>(IntPtr handle, string methodName, bool missingInMinimal = false) where T : class
 		{
 			var versionedMethodName = $"{methodName}_{IcuVersion}";
-			var methodPointer = IsWindows ?
-				GetProcAddress(handle, versionedMethodName) :
-				dlsym(handle, versionedMethodName);
+			IntPtr methodPointer = IntPtr.Zero;
+
+			OperatingSystemType operatingSystemType = Platform.OperatingSystem;
+
+			if(operatingSystemType == OperatingSystemType.Windows)
+			{
+				methodPointer = GetProcAddress(handle, versionedMethodName);
+			}
+			else if(operatingSystemType == OperatingSystemType.Unix)
+			{
+				methodPointer = dlsym(handle, versionedMethodName);
+			}
+			else if(operatingSystemType == OperatingSystemType.MacOSX)
+			{
+				methodPointer = macOS_dlsym(handle, versionedMethodName);
+			}
 
 			// Some systems (eg. Tizen) don't use methods with IcuVersion suffix
 			if (methodPointer == IntPtr.Zero)
 			{
-				methodPointer = IsWindows ?
-				GetProcAddress(handle, methodName) :
-				dlsym(handle, methodName);
+				if(operatingSystemType == OperatingSystemType.Windows)
+				{
+					methodPointer = GetProcAddress(handle, methodName);
+				}
+				else if(operatingSystemType == OperatingSystemType.Unix)
+				{
+					methodPointer = dlsym(handle, methodName);
+				}
+				else if(operatingSystemType == OperatingSystemType.MacOSX)
+				{
+					methodPointer = macOS_dlsym(handle, methodName);
+				}
 			}
 			if (methodPointer != IntPtr.Zero)
 			{
