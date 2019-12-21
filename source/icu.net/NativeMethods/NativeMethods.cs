@@ -767,6 +767,9 @@ namespace Icu
 			internal delegate bool u_isspaceDelegate(int characterCode);
 
 			[UnmanagedFunctionPointer(CallingConvention.Cdecl, CharSet = CharSet.Unicode)]
+			internal delegate int u_foldCaseDelegate(int characterCode, UInt32 options);
+
+			[UnmanagedFunctionPointer(CallingConvention.Cdecl, CharSet = CharSet.Unicode)]
 			internal delegate int u_tolowerDelegate(int characterCode);
 
 			[UnmanagedFunctionPointer(CallingConvention.Cdecl, CharSet = CharSet.Unicode)]
@@ -785,6 +788,10 @@ namespace Icu
 				out ErrorCode status);
 
 			[UnmanagedFunctionPointer(CallingConvention.Cdecl, CharSet = CharSet.Unicode)]
+			internal delegate int u_strFoldCaseDelegate(IntPtr dest, int destCapacity, string src,
+				int srcLength, UInt32 stringOptions, out ErrorCode errorCode);
+
+			[UnmanagedFunctionPointer(CallingConvention.Cdecl, CharSet = CharSet.Unicode)]
 			internal delegate int u_strToLowerDelegate(IntPtr dest, int destCapacity, string src,
 				int srcLength, [MarshalAs(UnmanagedType.LPStr)] string locale, out ErrorCode errorCode);
 
@@ -796,6 +803,21 @@ namespace Icu
 			[UnmanagedFunctionPointer(CallingConvention.Cdecl, CharSet = CharSet.Unicode)]
 			internal delegate int u_strToUpperDelegate(IntPtr dest, int destCapacity, string src,
 				int srcLength, [MarshalAs(UnmanagedType.LPStr)] string locale, out ErrorCode errorCode);
+
+			[UnmanagedFunctionPointer(CallingConvention.Cdecl, CharSet = CharSet.Unicode)]
+			internal delegate int u_charMirrorDelegate(int characterCode);
+
+			[UnmanagedFunctionPointer(CallingConvention.Cdecl, CharSet = CharSet.Unicode)]
+			internal delegate int u_getBidiPairedBracketDelegate(int characterCode);
+
+			[UnmanagedFunctionPointer(CallingConvention.Cdecl, CharSet = CharSet.Unicode)]
+			internal delegate int u_getFC_NFKC_ClosureDelegate(int codepoint, IntPtr dest, int destCapacity, out ErrorCode errorCode);
+
+			[UnmanagedFunctionPointer(CallingConvention.Cdecl, CharSet = CharSet.Unicode)]
+			internal delegate int uscript_getScriptExtensionsDelegate(int codepoint, IntPtr destArray, int destCapacity, out ErrorCode errorCode);
+
+			[UnmanagedFunctionPointer(CallingConvention.Cdecl, CharSet = CharSet.Unicode)]
+			internal delegate void u_charAgeDelegate(int codepoint, IntPtr versionArray);
 
 			internal u_initDelegate u_init;
 			internal u_cleanupDelegate u_cleanup;
@@ -813,14 +835,21 @@ namespace Icu
 			internal u_isMirroredDelegate u_isMirrored;
 			internal u_iscntrlDelegate u_iscntrl;
 			internal u_isspaceDelegate u_isspace;
+			internal u_foldCaseDelegate u_foldCase;
 			internal u_tolowerDelegate u_tolower;
 			internal u_totitleDelegate u_totitle;
 			internal u_toupperDelegate u_toupper;
 			internal uenum_closeDelegate uenum_close;
 			internal uenum_unextDelegate uenum_unext;
+			internal u_strFoldCaseDelegate u_strFoldCase;
 			internal u_strToLowerDelegate u_strToLower;
 			internal u_strToTitleDelegate u_strToTitle;
 			internal u_strToUpperDelegate u_strToUpper;
+			internal u_charMirrorDelegate u_charMirror;
+			internal u_getBidiPairedBracketDelegate u_getBidiPairedBracket;
+			internal u_getFC_NFKC_ClosureDelegate u_getFC_NFKC_Closure;
+			internal uscript_getScriptExtensionsDelegate uscript_getScriptExtensions;
+			internal u_charAgeDelegate u_charAge;
 		}
 
 		/// <summary>get the name of an ICU code point</summary>
@@ -1065,6 +1094,14 @@ namespace Icu
 			return Methods.u_isspace(characterCode);
 		}
 
+		/// <summary>Map character to its casefold equivalent according to UnicodeData.txt</summary>
+		public static int u_foldCase(int characterCode, Character.StringOptions stringOptions)
+		{
+			if(Methods.u_foldCase == null)
+				Methods.u_foldCase = GetMethod<MethodsContainer.u_foldCaseDelegate>(IcuCommonLibHandle, "u_foldCase");
+			return Methods.u_foldCase(characterCode, (UInt32)stringOptions);
+		}
+
 		/// <summary>Map character to its lowercase equivalent according to UnicodeData.txt</summary>
 		public static int u_tolower(int characterCode)
 		{
@@ -1087,6 +1124,15 @@ namespace Icu
 			if (Methods.u_toupper == null)
 				Methods.u_toupper = GetMethod<MethodsContainer.u_toupperDelegate>(IcuCommonLibHandle, "u_toupper");
 			return Methods.u_toupper(characterCode);
+		}
+
+		/// <summary>Return the case folded equivalent of the string.</summary>
+		public static int u_strFoldCase(IntPtr dest, int destCapacity, string src,
+			int srcLength, Character.StringOptions stringOptions, out ErrorCode errorCode)
+		{
+			if(Methods.u_strFoldCase == null)
+				Methods.u_strFoldCase = GetMethod<MethodsContainer.u_strFoldCaseDelegate>(IcuCommonLibHandle, "u_strFoldCase");
+			return Methods.u_strFoldCase(dest, destCapacity, src, srcLength, (UInt32)stringOptions, out errorCode);
 		}
 
 		/// <summary>Return the lower case equivalent of the string.</summary>
@@ -1124,6 +1170,43 @@ namespace Icu
 			if (Methods.u_strToUpper == null)
 				Methods.u_strToUpper = GetMethod<MethodsContainer.u_strToUpperDelegate>(IcuCommonLibHandle, "u_strToUpper");
 			return Methods.u_strToUpper(dest, destCapacity, src, srcLength, locale, out errorCode);
+		}
+
+		/// <summary>Return the mirrored glyph.</summary>
+		public static int u_charMirror(int c)
+		{
+			if(Methods.u_charMirror == null)
+				Methods.u_charMirror = GetMethod<MethodsContainer.u_charMirrorDelegate>(IcuCommonLibHandle, "u_charMirror");
+			return Methods.u_charMirror(c);
+		}
+
+		/// <summary>Return the mirrored glyph.</summary>
+		public static int u_getBidiPairedBracket(int c)
+		{
+			if(Methods.u_getBidiPairedBracket == null)
+				Methods.u_getBidiPairedBracket = GetMethod<MethodsContainer.u_getBidiPairedBracketDelegate>(IcuCommonLibHandle, "u_getBidiPairedBracket");
+			return Methods.u_getBidiPairedBracket(c);
+		}
+
+		public static int u_getFC_NFKC_Closure(int codepoint, IntPtr dest, int destCapacity, out ErrorCode errorCode)
+		{
+			if(Methods.u_getFC_NFKC_Closure == null)
+				Methods.u_getFC_NFKC_Closure = GetMethod<MethodsContainer.u_getFC_NFKC_ClosureDelegate>(IcuCommonLibHandle, "u_getFC_NFKC_Closure");
+			return Methods.u_getFC_NFKC_Closure(codepoint, dest, destCapacity, out errorCode);
+		}
+
+		public static int uscript_getScriptExtensions(int codepoint, IntPtr destArray, int destCapacity, out ErrorCode errorCode)
+		{
+			if(Methods.uscript_getScriptExtensions == null)
+				Methods.uscript_getScriptExtensions = GetMethod<MethodsContainer.uscript_getScriptExtensionsDelegate>(IcuCommonLibHandle, "uscript_getScriptExtensions");
+			return Methods.uscript_getScriptExtensions(codepoint, destArray, destCapacity, out errorCode);
+		}
+
+		public static void u_charAge(int codepoint, IntPtr versionArray)
+		{
+			if(Methods.u_charAge == null)
+				Methods.u_charAge = GetMethod<MethodsContainer.u_charAgeDelegate>(IcuCommonLibHandle, "u_charAge");
+			Methods.u_charAge(codepoint, versionArray);
 		}
 
 	}

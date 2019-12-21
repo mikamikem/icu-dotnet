@@ -61,7 +61,7 @@ See full changelog at https://github.com/sillsdev/icu-dotnet/blob/master/CHANGEL
     <PackageReference Include="SIL.ReleaseTasks" Version="2.2.0">
       <PrivateAssets>all</PrivateAssets>
     </PackageReference>
-    <PackageReference Include="System.ValueTuple" Version="4.5.0" />
+    <PackageReference Include="System.ValueTuple" Version="4.3.0" />
   </ItemGroup>
   <Target Name="StoreVersion" AfterTargets="Build">
     <MakeDir Directories="$(OutputPath)" />

@@ -39,6 +39,17 @@ namespace Icu
 		}
 
 		/// <summary>
+		/// Convert the characters in <paramref name="src"/> to case folded
+		/// following the conventions of a specific locale.
+		/// </summary>
+		/// <param name="src">String to convert.</param>
+		/// <param name="stringOptions">The string options to use when case folding.</param>
+		public static string FoldCase(string src, Character.StringOptions stringOptions)
+		{
+			return GetString(NativeMethods.u_strFoldCase, src, stringOptions);
+		}
+
+		/// <summary>
 		/// Convert the string to upper case, using the convention of the specified locale.
 		/// This may be null for the universal locale, or "" for a 'root' locale (whatever that means).
 		/// </summary>
@@ -115,6 +126,18 @@ namespace Icu
 			return NativeMethods.GetUnicodeString((ptr, length) =>
 				{
 					length = method(ptr, length, src, src.Length, locale, out var err);
+					return new Tuple<ErrorCode, int>(err, length);
+				}, src.Length + 10);
+		}
+
+		private delegate int CaseFoldMethod(IntPtr dest, int destCapacity, string src,
+			int srcLength, Character.StringOptions stringOptions, out ErrorCode errorCode);
+
+		private static string GetString(CaseFoldMethod method, string src, Character.StringOptions stringOptions)
+		{
+			return NativeMethods.GetUnicodeString((ptr, length) =>
+				{
+					length = method(ptr, length, src, src.Length, stringOptions, out var err);
 					return new Tuple<ErrorCode, int>(err, length);
 				}, src.Length + 10);
 		}

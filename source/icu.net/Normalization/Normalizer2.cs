@@ -187,6 +187,24 @@ namespace Icu.Normalization
 		}
 
 		/// <summary>
+		/// Gets the decomposition mapping of c. Roughly equivalent to normalizing the String
+		/// form of c on a Mode.DECOMPOSE Normalizer2 instance, but much faster, and except that
+		/// this function returns null if c does not have a decomposition mapping in this
+		/// instance's data. This function is independent of the mode of the Normalizer2.
+		/// </summary>
+		/// <param name="codePoint">code point </param>
+		/// <returns>c's decomposition mapping, if any; otherwise <c>null</c></returns>
+		public string GetRawDecomposition(int codePoint)
+		{
+			return NativeMethods.GetUnicodeString((ptr, length) =>
+			{
+				length = NativeMethods.unorm2_getRawDecomposition(_Normalizer, codePoint,
+					ptr, length, out var err);
+				return new Tuple<ErrorCode, int>(err, length);
+			}, 10);
+		}
+
+		/// <summary>
 		/// Tests if the string is normalized.
 		/// </summary>
 		/// <param name="src">input string</param>

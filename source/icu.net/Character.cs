@@ -1,6 +1,7 @@
 // Copyright (c) 2013-2017 SIL International
 // This software is licensed under the MIT license (http://opensource.org/licenses/MIT)
 using System;
+using System.Collections.Generic;
 using System.Globalization;
 using System.Runtime.InteropServices;
 
@@ -657,6 +658,173 @@ namespace Icu
 			CHAR_DIRECTION_COUNT
 		}
 
+		[Flags]
+		public enum StringOptions
+		{
+			/**
+			 * \file
+			 * \brief C API: Bit set option bit constants for various string and character processing functions.
+			 */
+
+			/**
+			 * Option value for case folding: Use default mappings defined in CaseFolding.txt.
+			 *
+			 * @stable ICU 2.0
+			 */
+			U_FOLD_CASE_DEFAULT = 0,
+
+			/**
+			 * Option value for case folding:
+			 *
+			 * Use the modified set of mappings provided in CaseFolding.txt to handle dotted I
+			 * and dotless i appropriately for Turkic languages (tr, az).
+			 *
+			 * Before Unicode 3.2, CaseFolding.txt contains mappings marked with 'I' that
+			 * are to be included for default mappings and
+			 * excluded for the Turkic-specific mappings.
+			 *
+			 * Unicode 3.2 CaseFolding.txt instead contains mappings marked with 'T' that
+			 * are to be excluded for default mappings and
+			 * included for the Turkic-specific mappings.
+			 *
+			 * @stable ICU 2.0
+			 */
+			U_FOLD_CASE_EXCLUDE_SPECIAL_I = 1,
+
+			/**
+			 * Titlecase the string as a whole rather than each word.
+			 * (Titlecase only the character at index 0, possibly adjusted.)
+			 * Option bits value for titlecasing APIs that take an options bit set.
+			 *
+			 * It is an error to specify multiple titlecasing iterator options together,
+			 * including both an options bit and an explicit BreakIterator.
+			 *
+			 * @see U_TITLECASE_ADJUST_TO_CASED
+			 * @stable ICU 60
+			 */
+			U_TITLECASE_WHOLE_STRING = 0x20,
+
+			/**
+			 * Titlecase sentences rather than words.
+			 * (Titlecase only the first character of each sentence, possibly adjusted.)
+			 * Option bits value for titlecasing APIs that take an options bit set.
+			 *
+			 * It is an error to specify multiple titlecasing iterator options together,
+			 * including both an options bit and an explicit BreakIterator.
+			 *
+			 * @see U_TITLECASE_ADJUST_TO_CASED
+			 * @stable ICU 60
+			 */
+			U_TITLECASE_SENTENCES = 0x40,
+
+			/**
+			 * Do not lowercase non-initial parts of words when titlecasing.
+			 * Option bit for titlecasing APIs that take an options bit set.
+			 *
+			 * By default, titlecasing will titlecase the character at each
+			 * (possibly adjusted) BreakIterator index and
+			 * lowercase all other characters up to the next iterator index.
+			 * With this option, the other characters will not be modified.
+			 *
+			 * @see U_TITLECASE_ADJUST_TO_CASED
+			 * @see UnicodeString::toTitle
+			 * @see CaseMap::toTitle
+			 * @see ucasemap_setOptions
+			 * @see ucasemap_toTitle
+			 * @see ucasemap_utf8ToTitle
+			 * @stable ICU 3.8
+			 */
+			U_TITLECASE_NO_LOWERCASE = 0x100,
+
+			/**
+			 * Do not adjust the titlecasing BreakIterator indexes;
+			 * titlecase exactly the characters at breaks from the iterator.
+			 * Option bit for titlecasing APIs that take an options bit set.
+			 *
+			 * By default, titlecasing will take each break iterator index,
+			 * adjust it to the next relevant character (see U_TITLECASE_ADJUST_TO_CASED),
+			 * and titlecase that one.
+			 *
+			 * Other characters are lowercased.
+			 *
+			 * It is an error to specify multiple titlecasing adjustment options together.
+			 *
+			 * @see U_TITLECASE_ADJUST_TO_CASED
+			 * @see U_TITLECASE_NO_LOWERCASE
+			 * @see UnicodeString::toTitle
+			 * @see CaseMap::toTitle
+			 * @see ucasemap_setOptions
+			 * @see ucasemap_toTitle
+			 * @see ucasemap_utf8ToTitle
+			 * @stable ICU 3.8
+			 */
+			U_TITLECASE_NO_BREAK_ADJUSTMENT = 0x200,
+
+			/**
+			 * Adjust each titlecasing BreakIterator index to the next cased character.
+			 * (See the Unicode Standard, chapter 3, Default Case Conversion, R3 toTitlecase(X).)
+			 * Option bit for titlecasing APIs that take an options bit set.
+			 *
+			 * This used to be the default index adjustment in ICU.
+			 * Since ICU 60, the default index adjustment is to the next character that is
+			 * a letter, number, symbol, or private use code point.
+			 * (Uncased modifier letters are skipped.)
+			 * The difference in behavior is small for word titlecasing,
+			 * but the new adjustment is much better for whole-string and sentence titlecasing:
+			 * It yields "49ers" and "«丰(abc)»" instead of "49Ers" and "«丰(Abc)»".
+			 *
+			 * It is an error to specify multiple titlecasing adjustment options together.
+			 *
+			 * @see U_TITLECASE_NO_BREAK_ADJUSTMENT
+			 * @stable ICU 60
+			 */
+			U_TITLECASE_ADJUST_TO_CASED = 0x400,
+
+			/**
+			 * Option for string transformation functions to not first reset the Edits object.
+			 * Used for example in some case-mapping and normalization functions.
+			 *
+			 * @see CaseMap
+			 * @see Edits
+			 * @see Normalizer2
+			 * @stable ICU 60
+			 */
+			U_EDITS_NO_RESET = 0x2000,
+
+			/**
+			 * Omit unchanged text when recording how source substrings
+			 * relate to changed and unchanged result substrings.
+			 * Used for example in some case-mapping and normalization functions.
+			 *
+			 * @see CaseMap
+			 * @see Edits
+			 * @see Normalizer2
+			 * @stable ICU 60
+			 */
+			U_OMIT_UNCHANGED_TEXT = 0x4000,
+
+			/**
+			 * Option bit for u_strCaseCompare, u_strcasecmp, unorm_compare, etc:
+			 * Compare strings in code point order instead of code unit order.
+			 * @stable ICU 2.2
+			 */
+			U_COMPARE_CODE_POINT_ORDER = 0x8000,
+
+			/**
+			 * Option bit for unorm_compare:
+			 * Perform case-insensitive comparison.
+			 * @stable ICU 2.2
+			 */
+			U_COMPARE_IGNORE_CASE = 0x10000,
+
+			/**
+			 * Option bit for unorm_compare:
+			 * Both input strings are assumed to fulfill FCD conditions.
+			 * @stable ICU 2.2
+			 */
+			UNORM_INPUT_IS_FCD = 0x20000
+		}
+
 		/// <summary>
 		/// Special value that is returned by <see cref="GetNumericValue(int)"/>
 		/// when no numeric value is defined for a code point.
@@ -913,6 +1081,35 @@ namespace Icu
 		}
 
 		/// <summary>
+		/// Gets the ICU display name of the specified character code with the given format.
+		/// </summary>
+		public static string GetCharName(int code, UCharNameChoice charNameChoice)
+		{
+			string name;
+			if(CharName(code, charNameChoice, out name) > 0)
+			{
+				return name;
+			}
+			return null;
+		}
+
+		/// <summary>
+		/// Gets the BiDi mirrored glyph of the specified character code.
+		/// </summary>
+		public static int GetBidiMirroredGlyph(int code)
+		{
+			return NativeMethods.u_charMirror(code);
+		}
+
+		/// <summary>
+		/// Gets the BiDi paired bracket of the specified character code.
+		/// </summary>
+		public static int GetBidiPairedBracket(int code)
+		{
+			return NativeMethods.u_getBidiPairedBracket(code);
+		}
+
+		/// <summary>
 		/// Get the property value for an enumerated or integer Unicode property for a code point.
 		/// Also returns binary and mask property values.
 		/// </summary>
@@ -941,6 +1138,82 @@ namespace Icu
 		public static int GetIntPropertyValue(int codePoint, UProperty which)
 		{
 			return NativeMethods.u_getIntPropertyValue(codePoint, which);
+		}
+
+		/// <summary>
+		/// The given character is mapped to its case folded equivalent according to UnicodeData.txt;
+		/// if the character has no case fold equivalent, the character itself is returned.
+		///
+		/// This function only returns the simple, single-code point case mapping. Full case
+		/// mappings should be used whenever possible because they produce better results by
+		/// working on whole strings. They take into account the string context and the language
+		/// and can map to a result string with a different length as appropriate. Full case
+		/// mappings are applied by the string case mapping functions, <see cref="UnicodeString"/>
+		/// See also the User Guide chapter on C/POSIX migration:
+		/// <seealso href="http: //icu-project.org/userguide/posix.html#case_mappings"/>
+		/// </summary>
+		/// <param name="codePoint">the code point to be mapped </param>
+		/// <returns>the Simple_Casefold_Mapping of the code point, if any; otherwise the code
+		/// point itself. </returns>
+		public static int FoldCase(int codePoint, StringOptions stringOptions)
+		{
+			return NativeMethods.u_foldCase(codePoint, stringOptions);
+		}
+
+		private delegate int SingleCharMethod(int codepoint, IntPtr dest, int destCapacity, out ErrorCode errorCode);
+
+		private static string GetString(SingleCharMethod method, int codepoint)
+		{
+			return NativeMethods.GetUnicodeString((ptr, length) =>
+			{
+				length = method(codepoint, ptr, length, out var err);
+				return new Tuple<ErrorCode, int>(err, length);
+			});
+		}
+
+		public static string FC_NKFC_Closure(int codepoint)
+		{
+			return GetString(NativeMethods.u_getFC_NFKC_Closure, codepoint);
+		}
+
+		public static int[] ScriptExtensions(int codepoint)
+		{
+			ErrorCode errorCode;
+
+			var length = 2;
+			var resPtr = Marshal.AllocCoTaskMem(Marshal.SizeOf(typeof(int)) * length);
+			try
+			{
+				int extensionCount = NativeMethods.uscript_getScriptExtensions(codepoint, resPtr, length, out errorCode);
+				if(errorCode != ErrorCode.BUFFER_OVERFLOW_ERROR && errorCode != ErrorCode.STRING_NOT_TERMINATED_WARNING)
+					ExceptionFromErrorCode.ThrowIfError(errorCode);
+				if(extensionCount >= length)
+				{
+					errorCode = ErrorCode.NoErrors; // ignore possible U_BUFFER_OVERFLOW_ERROR or STRING_NOT_TERMINATED_WARNING
+					Marshal.FreeCoTaskMem(resPtr);
+					length = extensionCount;
+					resPtr = Marshal.AllocCoTaskMem(Marshal.SizeOf(typeof(int)) * length);
+					extensionCount = NativeMethods.uscript_getScriptExtensions(codepoint, resPtr, length, out errorCode);
+				}
+
+				ExceptionFromErrorCode.ThrowIfError(errorCode);
+
+				if(extensionCount < 0)
+					return null;
+
+				List<int> validScriptExtensions = new List<int>(extensionCount);
+
+				for(int scriptIndex = 0; scriptIndex < extensionCount; ++scriptIndex)
+				{
+					validScriptExtensions.Add(Marshal.ReadInt32(resPtr + (scriptIndex * Marshal.SizeOf(typeof(int)))));
+				}
+
+				return validScriptExtensions.ToArray();
+			}
+			finally
+			{
+				Marshal.FreeCoTaskMem(resPtr);
+			}
 		}
 
 		/// <summary>
@@ -1001,6 +1274,29 @@ namespace Icu
 		public static int ToUpper(int codePoint)
 		{
 			return NativeMethods.u_toupper(codePoint);
+		}
+
+		public static int[] Age(int codepoint)
+		{
+			var length = 4;
+			var resPtr = Marshal.AllocCoTaskMem(Marshal.SizeOf(typeof(char)) * length);
+			try
+			{
+				NativeMethods.u_charAge(codepoint, resPtr);
+
+				List<int> ageValues = new List<int>(length);
+
+				for(int ageIndex = 0; ageIndex < length; ++ageIndex)
+				{
+					ageValues.Add(Marshal.ReadByte(resPtr + (ageIndex * Marshal.SizeOf(typeof(char)))));
+				}
+
+				return ageValues.ToArray();
+			}
+			finally
+			{
+				Marshal.FreeCoTaskMem(resPtr);
+			}
 		}
 
 	}
